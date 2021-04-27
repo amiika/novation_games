@@ -256,9 +256,11 @@ live_loop :check_events do
         set :game_over, true
         flash_cells $game[:mines], 72, 6
         sleep 3
-        scroll_text "BOOM !", 1, 15, rgb(178,34,34) if get :game_over
-        sleep 3
-        $game = start_game
+        if get(:game_over) then # If new game hasnt started yet
+          scroll_text "BOOM !", 1, 15, rgb(178,34,34)
+          sleep 3
+          $game = start_game
+        end
       else
         
         evade x, y
@@ -269,9 +271,11 @@ live_loop :check_events do
           game_over = true
           set :state, :happy
           sleep 3
-          scroll_text "WINNER! \^.^/", 1, 15, rgb(255,255,0) if get :game_over
-          sleep 3
-          $game = start_game
+          if (get :game_over) then
+            scroll_text "WINNER! \^.^/", 1, 15, rgb(255,255,0)
+            sleep 3
+            $game = start_game
+          end
         else
           print "Hits remaining: "+($game[:hits_to_win]-$game[:hits]).to_s
           set :state, :relax
