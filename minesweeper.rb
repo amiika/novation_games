@@ -102,11 +102,10 @@ end
 # Creates rgb from probability based on the color scheme
 define :prob_to_color do |prob|
   
-  # Coloring scheme for propabilities
+  # Try with different color schemes
   colors = [
-    rgb(255,0,0),
-    rgb(255,0,255),
-    rgb(55,55,55)
+    rgb(255, 0, 0), rgb(255, 128, 0), rgb(255, 0, 128), rgb(255, 0, 255), rgb(128, 0, 255), rgb(0, 0, 255)
+    # rgb(255,0,0), rgb(255,0,255), rgb(55,55,55)
   ]
   
   index = colors.index.with_index do |col,i|
@@ -268,7 +267,7 @@ live_loop :check_events do
         $game[:board][x-1][y-1][:value] = nil # Add visit to matrix
         
         if $game[:hits]>=$game[:hits_to_win] then
-          game_over = true
+          set :game_over, true
           set :state, :happy
           sleep 3
           if (get :game_over) then
