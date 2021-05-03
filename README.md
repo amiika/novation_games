@@ -2,7 +2,7 @@
 
 Collection of small and colorful games for Novation Launchpad Mini controller and Sonic Pi
 
-# How to use 
+# How to play
 
 1. Install [Sonic Pi](https://sonic-pi.net/)
 2. Copy and paste game code to Sonic pi
