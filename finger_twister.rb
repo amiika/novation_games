@@ -1,6 +1,6 @@
 # Finger twister for Novation Launchpad Mini and Sonic Pi
 
-# Try to bend your fingers to same color spots. No points for now, just for fun.
+# Each player presses the same color with one or more hands. One with more colors pressed wins. Play at your own risk. Developer is not responsible for any broken fingers ;)
 
 set :players, 2
 set :fingers, 5
@@ -30,21 +30,10 @@ define :led_sysex do |values|
   midi_sysex 0xf0, 0x00, 0x20, 0x29, 0x02, 0x0d, 0x03, *values, 0xf7, port: launchpad_out
 end
 
-# Stop scrolling text
-define :stop_text do
-  midi_sysex 0xf0, 0x00, 0x20, 0x29, 0x02, 0x0d, 0x07, 0xf7
-end
-
 # Helper method for defining midi rgb
 # Nice color picker: https://www.rapidtables.com/web/color/html-color-codes.html
 define :rgb do |r,g,b|
   [((127*r)/255),((127*g/255)),((127*b)/255)]
-end
-
-# Scroll text on novation launchpad
-define :scroll_text do |text, loop=0x01,speed=0x07,rgb=[127,127,127]|
-  text = text.chars.map { |b| b.ord }
-  midi_sysex 0xf0, 0x00, 0x20, 0x29, 0x02, 0x0d, 0x07, loop, speed, 0x01, *rgb, *text, 0xf7
 end
 
 # Set single cell flashing from color palette
@@ -61,9 +50,11 @@ define :flash_cells do |cells, a, b|
   end
 end
 
-# Ring of rainbow colors
-define :rainbow_colors do
-  rainbows = (ring rgb(255, 0, 0), rgb(255, 128, 0), rgb(255, 255, 0), rgb(128, 255, 0), rgb(0, 255, 0), rgb(0, 255, 128), rgb(0, 255, 255), rgb(0, 128, 255), rgb(0, 0, 255),rgb(128, 0, 255), rgb(255, 0, 255), rgb(255, 0, 128))
+# Flash multiple cells from color palette
+define :flash_winner_cells do |cells|
+  cells.each do |cell|
+    set_cell_flash cell[:x], cell[:y], 13, cell[:color]
+  end
 end
 
 # Set single cell color from predefined palette
@@ -171,21 +162,19 @@ end
 
 # Write your game settings here
 define :start_game do
-  stop_text # Stop texts if running
+  set :state, :relax
+  set :game_over, false
   set_programmer_mode # Set programmer mode
-  $board = (1..8).map {|x| (1..8).map {|y| {x: x, y: y, value: nil}}} # Create new board
-  print $board
+  $board = (1..8).map {|x| (1..8).map {|y| {x: 9-x, y: y, value: nil}}} # Create new board
   clear_pads
   players = get :players
   $times = (1..players).map {|p| 0.0 }
-  set :state, :relax
-  set :game_over, false
-  
   in_thread do
     use_random_seed = Time.now.to_i
     SecureRandom.random_number(1000).times { rand }
     players = get :players
-    spots = players * 5
+    fingers = get :fingers
+    spots = players * fingers
     spots.times do |i|
       x = rrand_i(0,7)
       y = rrand_i(0,7)
@@ -196,10 +185,17 @@ define :start_game do
       end
       
       $board[x][y][:value] = (i%players)
-      set_cell_color_from_palette x+1, y+1, player_color(i%players)
+      $board[x][y][:color] = player_color(i%players)
+      print $board[x][y]
+      set_cell_color_from_palette 8-x, y+1, player_color(i%players)
       
       sleep 1
     end
+    sleep 1
+    set :game_over, true
+    pressed = $board.map {|row| row.select {|cell| cell[:press] } }.flatten
+    print pressed
+    flash_winner_cells pressed
   end
   
 end
@@ -219,10 +215,10 @@ live_loop :event_listener do
   
   if type=="note_on"
     if touch==0 # Touch off
-      cue :push, type: :off, x: x, y: y
+      cue :push, type: :off, x: 8-x, y: y-1
       # sleep 0.5
     else
-      cue :push, type: :on, x: x, y: y
+      cue :push, type: :on, x: 8-x, y: y-1
     end
   elsif type=="control_change"
     if get_pad_status(19) and get_pad_status(91) then
@@ -256,21 +252,25 @@ live_loop :fingertwister do
     x = event[:x]
     y = event[:y]
     
-    if event[:type]==:on
-      # Do something
+    print x
+    print y
+    
+    if event[:type] == :on
+      print $board[x][y]
+      if $board[x][y][:value]
+        $board[x][y][:press]=true
+        print $board
+      end
+    elsif event[:type] == :off
+      if $board[x][y][:value]
+        $board[x][y][:press]=false
+      end
     end
     
     if game_over
       set :state, :happy
-      # Or sad
-      in_thread do # In separate thread to enable sleeping
-        if get :game_over # If new game hasnt started yet
-          scroll_text (turn+1).to_s+" WINS !", 1, 15, rgb(255,255,0)
-          sleep 3
-          start_game
-        end
-      end
     end
+    
   end
 end
 
@@ -282,8 +282,15 @@ live_loop :music do
   state = get :state
   if state == :relax then
     synth :dull_bell, note: relax[tick]
+    sleep 1.0
+  elsif state == :happy
+    synth :chiplead, note: relax[tick]
+    sleep 0.25
   end
-  sleep 1
+  if rand>0.5
+    relax = relax.shuffle
+    happy = happy.shuffle
+  end
 end
 
 start_game
