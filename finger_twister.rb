@@ -1,7 +1,8 @@
 # Finger twister for Novation Launchpad Mini and Sonic Pi
 
-# Each player presses the same color with one or more hands. One with more colors pressed wins. Play at your own risk. Developer is not responsible for any broken fingers ;)
+# Rules: Each player presses pads with different colors with one or more hands. One who has pressed all pads after the last coloured pad appears wins. Play at your own risk. Game developer is not responsible for any broken fingers.
 
+# Game settings: Defaults are 2 players with one hand. Optionally 2/10 is also fun ... or whatever depending on number of players and available fingers to sacrifice :)
 set :players, 2
 set :fingers, 5
 
@@ -36,6 +37,17 @@ define :rgb do |r,g,b|
   [((127*r)/255),((127*g/255)),((127*b)/255)]
 end
 
+# Stop scrolling text
+define :stop_text do
+  midi_sysex 0xf0, 0x00, 0x20, 0x29, 0x02, 0x0d, 0x07, 0xf7
+end
+
+# Scroll text on novation launchpad
+define :scroll_text do |text, loop=0x01,speed=0x07,rgb=[127,127,127]|
+  text = text.chars.map { |b| b.ord }
+  midi_sysex 0xf0, 0x00, 0x20, 0x29, 0x02, 0x0d, 0x07, loop, speed, 0x01, *rgb, *text, 0xf7
+end
+
 # Set single cell flashing from color palette
 define :set_cell_flash do |x, y, c1, c2|
   cell = (x.to_s+y.to_s).to_i
@@ -51,9 +63,19 @@ define :flash_cells do |cells, a, b|
 end
 
 # Flash multiple cells from color palette
-define :flash_winner_cells do |cells|
+define :remove_pressed_cells do |arr|
+  pad_colors = []
+  arr.each do |cell|
+    cell_color = [0x00, cell[:id], 0]
+    pad_colors = pad_colors+cell_color
+  end
+  led_sysex pad_colors
+end
+
+# Flash multiple cells from color palette
+define :flash_missing_cells do |cells|
   cells.each do |cell|
-    set_cell_flash cell[:x], cell[:y], 13, cell[:color]
+    set_cell_flash cell[:x], cell[:y], 0, cell[:color]
   end
 end
 
@@ -162,13 +184,17 @@ end
 
 # Write your game settings here
 define :start_game do
-  set :state, :relax
   set :game_over, false
+  set :state, :relax
+  set :pads_left, 0
+  stop_text # Stop texts if running
   set_programmer_mode # Set programmer mode
-  $board = (1..8).map {|x| (1..8).map {|y| {x: 9-x, y: y, value: nil}}} # Create new board
+  $board = (1..8).map {|x| (1..8).map {|y| {id: ((9-x).to_s+y.to_s).to_i, x: 9-x, y: y, value: nil}}} # Create new board
   clear_pads
   players = get :players
   $times = (1..players).map {|p| 0.0 }
+  relax = (scale :d3, :kumoi).shuffle
+  
   in_thread do
     use_random_seed = Time.now.to_i
     SecureRandom.random_number(1000).times { rand }
@@ -188,14 +214,24 @@ define :start_game do
       $board[x][y][:color] = player_color(i%players)
       print $board[x][y]
       set_cell_color_from_palette 8-x, y+1, player_color(i%players)
-      
+      synth :dull_bell, note: relax[tick]
       sleep 1
+      
     end
     sleep 1
     set :game_over, true
     pressed = $board.map {|row| row.select {|cell| cell[:press] } }.flatten
-    print pressed
-    flash_winner_cells pressed
+    not_pressed = $board.map {|row| row.select {|cell| cell[:value] and !cell[:press] } }.flatten
+    set :not_pressed, not_pressed.length
+    if not_pressed.length>0
+      set :state, :sad
+    else
+      set :state, :happy
+      scroll_text "=) Yall win! (=", 1, 15, rgb(255,255,0)
+      sleep 1
+    end
+    remove_pressed_cells pressed
+    flash_missing_cells not_pressed
   end
   
 end
@@ -218,12 +254,22 @@ live_loop :event_listener do
       cue :push, type: :off, x: 8-x, y: y-1
       # sleep 0.5
     else
+      if get(:game_over) # Start new game
+        stop_text
+        sleep 2
+        start_game
+      end
+      
       cue :push, type: :on, x: 8-x, y: y-1
     end
   elsif type=="control_change"
     if get_pad_status(19) and get_pad_status(91) then
       print "Starting new game"
-      start_game # Start new game
+      if get(:game_over)
+        stop_text
+        sleep 2
+        start_game
+      end
     end
     if touch==0
       set_pad_status pad, false
@@ -246,17 +292,12 @@ end
 live_loop :fingertwister do
   use_real_time
   event = sync :push
-  game_over = get :game_over
   
   if event
     x = event[:x]
     y = event[:y]
     
-    print x
-    print y
-    
     if event[:type] == :on
-      print $board[x][y]
       if $board[x][y][:value]
         $board[x][y][:press]=true
         print $board
@@ -267,29 +308,30 @@ live_loop :fingertwister do
       end
     end
     
-    if game_over
-      set :state, :happy
-    end
-    
   end
 end
 
 # Set different scales for different states
-relax = (scale :d3, :kumoi).shuffle
 happy = (scale :a4, :major_pentatonic).shuffle
+sad = (scale :c3, :blues_minor).shuffle
 
 live_loop :music do
   state = get :state
-  if state == :relax then
-    synth :dull_bell, note: relax[tick]
-    sleep 1.0
-  elsif state == :happy
-    synth :chiplead, note: relax[tick]
+  if state == :happy
+    synth :chiplead, note: happy[tick]
+    sleep 0.25
+  elsif state == :sad
+    (get :not_pressed).times do
+      synth :hollow, note: sad[tick], attack: rand(0.5), release: 3, amp: rrand(0.50, 1)
+      sleep rand(0.5)
+    end
+    sleep rrand(1.5, 3.0)
+  else
     sleep 0.25
   end
-  if rand>0.5
-    relax = relax.shuffle
+  if rand>0.2
     happy = happy.shuffle
+    sad = sad.shuffle
   end
 end
 
