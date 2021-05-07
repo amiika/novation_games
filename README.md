@@ -14,13 +14,13 @@ Collection of small and colorful games for Novation Launchpad Mini controller an
 # Games
 
 * Tic Tac Toe (multiplayer)
-* Minesweeper (1 player or cooperative)
+* Minesweeper (solo / cooperative)
+* Memory game (solo / cooperative)
 * Finger twister (multiplayer)
 * Nyan cat animator (Not really a game, but fun)
 
 # New game ideas
 
-* Memory game
 * Reaction game
 * Battle ships
 * Worms
