@@ -13,7 +13,8 @@ Collection of small and colorful games for Novation Launchpad Mini controller an
 3. Plug in Novation Mini
 4. Press run
 5. Play
-6. (OPTIONAL: Modify code and create your own game)
+6. Restart games at any point by pressing Stop and Up-arrow
+7. (OPTIONAL: Modify code and create your own music or game)
 
 # Games
 
