@@ -14,6 +14,7 @@ Collection of small and colorful games for Novation Launchpad Mini controller an
 # Games
 
 * Tic Tac Toe (multiplayer)
+* Chess (2 players)
 * Minesweeper (solo / cooperative)
 * Memory game (solo / cooperative)
 * Finger twister (multiplayer)
@@ -25,4 +26,3 @@ Collection of small and colorful games for Novation Launchpad Mini controller an
 * Battle ships
 * Worms
 * Tetris
-* Chess (ish?)
