@@ -2,6 +2,10 @@
 
 Collection of small and colorful games for Novation Launchpad Mini controller and Sonic Pi
 
+[
+![20210515_223513](https://user-images.githubusercontent.com/1742231/118375985-fc416780-b5cd-11eb-967e-9961db864978.jpg)
+](url)
+
 # How to play
 
 1. Install [Sonic Pi](https://sonic-pi.net/)
