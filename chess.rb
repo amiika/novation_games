@@ -1,11 +1,11 @@
 # Sonic chess for Novation Launchpad and Sonic Pi
 
-# Start new game at any time by pressing Stop and Up-arrow
+# Run buffer and start a new game by pressing Stop and Up-arrow at any time
 # When game is running, you can potentially live code music (or anything) on the fly.
 # Turn of the player is indicated in the top right corner (Novation logo)
 # Select piece to move or inspect enemy moves. Turn changes only after legal move is done.
 # Undo previous move (for teachnig purposes) by pressing Left-arrow
-# Game is not finished until the King is dead. Long live the King! 
+# Game is not finished until the King is dead. Long live the King!
 # Start a new game by pressing Stop and Up-arrow
 
 use_debug false
@@ -282,7 +282,7 @@ live_loop :game do
   x = event[:x]
   y = event[:y]
   
-  if event and !game_over
+  if event
     if event[:type]==:c_off
       if id==93
         last_state = $history.pop
@@ -293,6 +293,10 @@ live_loop :game do
           set :selected_pad, nil
           $board = Marshal.load(last_state[:state])
           set_board_colors $board
+          if game_over
+            game_over = false
+            set :game_over, false
+          end
         end
       end
       if promote
@@ -311,76 +315,78 @@ live_loop :game do
         end
       end
     end
-    if event[:type]==:pad_off and !promote
-      pad = $board[x][y]
-      if pad[:piece] and pad[:piece][:player]==turn
-        if !selected_pad or pad[:id]!=selected_pad[:id]
-          sample select_sounds.choose
-          set :selected_pad, pad
-          set_board_colors $board
-          moves = get_possible_moves pad
-          set :possible_moves, moves
-          flash_cells moves.map {|c| c[:cell] }, pad[:color]
-        else
-          set :selected_pad, nil
-          set_board_colors $board
-        end
-      elsif selected_pad and (!pad[:piece] or pad[:piece][:player]!=turn)
-        moves = get :possible_moves
-        moves_ids = moves.map {|c| c[:cell][:pos] }
-        move_id = moves_ids.index(id)
-        if move_id
-          print selected_pad[:piece][:type].to_s+ " from "+selected_pad[:id].to_s+" to "+pad[:id].to_s
-          s_x = selected_pad[:x]
-          s_y = selected_pad[:y]
-          move = moves[move_id]
-          case move[:type]
-          when :attack
-            sample attack_sounds.choose, beat_stretch: rrand(1.0,2.0), amp: 0.5
-            set :game_over, true if pad[:piece][:type]==:king
-          when :passant
-            sample attack_sounds.choose, beat_stretch: rrand(1.0,2.0), amp: 0.5
-            kill = move[:kill]
-            remove_piece_from_cell $board[kill[:x]][kill[:y]]
-          when :move
-            sample move_sounds.choose
-          when :castle
-            remove_piece_from_cell $board[move[:rook_from][:x]][move[:rook_from][:y]]
-            $board[move[:rook_to][:x]][move[:rook_to][:y]][:piece] = move[:rook_from][:piece]
-            $board[move[:rook_to][:x]][move[:rook_to][:y]][:color] = move[:rook_from][:color]
-            set_pad_color $board[x][y]
-          end
-          
-          set_board_colors $board # Remove all flashing cells etc.
-          $history.push({player: turn, move: [selected_pad[:id],pad[:id]], state: Marshal.dump($board) })
-          $board[x][y][:piece] = $board[s_x][s_y][:piece] # Move piece
-          $board[x][y][:color] = $board[s_x][s_y][:color] # Change cell color from board
-          remove_piece_from_cell $board[s_x][s_y] # Remove old piece
-          set_pad_color $board[x][y] # Set new cell color
-          
-          if selected_pad[:piece][:type] == :pawn and (pad[:x] == 0 or pad[:x] == 7)
-            set :wait_for_promote, $board[x][y] # Pawn promotion
-            set_colors [89,79,69,59], [pieces[:rook][:colors][turn],pieces[:knight][:colors][turn],pieces[:bishop][:colors][turn],pieces[:queen][:colors][turn]], 2
-            print "Waiting for promotion"
+    if !game_over
+      if event[:type]==:pad_off and !promote
+        pad = $board[x][y]
+        if pad[:piece] and pad[:piece][:player]==turn
+          if !selected_pad or pad[:id]!=selected_pad[:id]
+            sample select_sounds.choose
+            set :selected_pad, pad
+            set_board_colors $board
+            moves = get_possible_moves pad
+            set :possible_moves, moves
+            flash_cells moves.map {|c| c[:cell] }, pad[:color]
           else
-            set :selected_pad, nil # Change turn
-            change_turn turn
+            set :selected_pad, nil
+            set_board_colors $board
           end
-          
-        else
-          print "Illegal move"
-          set :selected_pad, nil
-          set_board_colors $board
-        end
-      elsif !selected_pad
-        if pad[:piece]
-          print "Inspecting enemy moves"
-          enemy_moves = get_possible_moves pad
-          set_board_colors $board
-          flash_cells enemy_moves.map {|c| c[:cell] }, pad[:color]
-        else
-          set :selected_pad, nil
-          set_board_colors $board
+        elsif selected_pad and (!pad[:piece] or pad[:piece][:player]!=turn)
+          moves = get :possible_moves
+          moves_ids = moves.map {|c| c[:cell][:pos] }
+          move_id = moves_ids.index(id)
+          if move_id
+            print selected_pad[:piece][:type].to_s+ " from "+selected_pad[:id].to_s+" to "+pad[:id].to_s
+            s_x = selected_pad[:x]
+            s_y = selected_pad[:y]
+            move = moves[move_id]
+            case move[:type]
+            when :attack
+              sample attack_sounds.choose, beat_stretch: rrand(1.0,2.0), amp: 0.5
+              set :game_over, true if pad[:piece][:type]==:king
+            when :passant
+              sample attack_sounds.choose, beat_stretch: rrand(1.0,2.0), amp: 0.5
+              kill = move[:kill]
+              remove_piece_from_cell $board[kill[:x]][kill[:y]]
+            when :move
+              sample move_sounds.choose
+            when :castle
+              remove_piece_from_cell $board[move[:rook_from][:x]][move[:rook_from][:y]]
+              $board[move[:rook_to][:x]][move[:rook_to][:y]][:piece] = move[:rook_from][:piece]
+              $board[move[:rook_to][:x]][move[:rook_to][:y]][:color] = move[:rook_from][:color]
+              set_pad_color $board[x][y]
+            end
+            
+            set_board_colors $board # Remove all flashing cells etc.
+            $history.push({player: turn, move: [selected_pad[:id],pad[:id]], state: Marshal.dump($board) })
+            $board[x][y][:piece] = $board[s_x][s_y][:piece] # Move piece
+            $board[x][y][:color] = $board[s_x][s_y][:color] # Change cell color from board
+            remove_piece_from_cell $board[s_x][s_y] # Remove old piece
+            set_pad_color $board[x][y] # Set new cell color
+            
+            if selected_pad[:piece][:type] == :pawn and (pad[:x] == 0 or pad[:x] == 7)
+              set :wait_for_promote, $board[x][y] # Pawn promotion
+              set_colors [89,79,69,59], [pieces[:rook][:colors][turn],pieces[:knight][:colors][turn],pieces[:bishop][:colors][turn],pieces[:queen][:colors][turn]], 2
+              print "Waiting for promotion"
+            else
+              set :selected_pad, nil # Change turn
+              change_turn turn
+            end
+            
+          else
+            print "Illegal move"
+            set :selected_pad, nil
+            set_board_colors $board
+          end
+        elsif !selected_pad
+          if pad[:piece]
+            print "Inspecting enemy moves"
+            enemy_moves = get_possible_moves pad
+            set_board_colors $board
+            flash_cells enemy_moves.map {|c| c[:cell] }, pad[:color]
+          else
+            set :selected_pad, nil
+            set_board_colors $board
+          end
         end
       end
     end
