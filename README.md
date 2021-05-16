@@ -7,12 +7,12 @@ Collection of small and colorful games for Novation Launchpad Mini controller an
 # How to play
 
 1. Install [Sonic Pi](https://sonic-pi.net/)
-2. Clone repository or Copy and Paste game code to Sonic pi
-3. Plug in Novation Mini
-4. Press run
-5. Play
-6. Restart games at any point by pressing Stop and Up-arrow
-7. (OPTIONAL: Modify code and create your own music or game)
+2. Plug in Novation Mini and start Sonic Pi
+4. Clone repository or simply copy&paste game code to Sonic Pi buffer
+5. Press run
+6. Play
+7. Restart games at any point by pressing Stop and Up-arrow
+8. (OPTIONAL: Modify code and create your own music or game)
 
 # Games
 
