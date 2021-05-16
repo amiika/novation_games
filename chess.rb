@@ -1,12 +1,12 @@
 # Sonic chess for Novation Launchpad and Sonic Pi
 
-# Run buffer and start a new game by pressing Stop and Up-arrow at any time
-# When game is running, you can potentially live code music (or anything) on the fly.
+# Start a new game at any time by pressing Stop and Up-arrow simultaniously
+# When game is running, you can potentially live code music (or anything) on the fly
 # Turn of the player is indicated in the top right corner (Novation logo)
-# Select piece to move or inspect enemy moves. Turn changes only after legal move is done.
-# Undo previous move (for teachnig purposes) by pressing Left-arrow
+# Select piece to move OR inspect enemy moves. Turn changes only after legal move is done.
+# Undo previous move by pressing Left-arrow for teachnig purposes or undoing illegal moves that are not restricted by the game logic
 # Game is not finished until the King is dead. Long live the King!
-# Start a new game by pressing Stop and Up-arrow
+# After the game is finished start a new game by pressing Stop and Up-arrow. Optionally undo some moves and start again from different point.
 
 use_debug false
 use_midi_logging false
@@ -18,6 +18,26 @@ launchpad_out = "midiout2_(lpminimk3_midi)_2"
 
 # This is used mainly for setting how lights flash
 midi_clock_beat 0.25, port: launchpad_out
+
+# General movement settings
+DIAGONALS = [[1, 1], [1, -1], [-1, 1], [-1, -1]]
+ORTHOGONALS = [[0, 1], [1, 0], [0, -1], [-1, 0]]
+HOPS = [[-1, -2], [-2, -1], [-2, +1], [-1, +2], [+1, -2], [+2, -1], [+2, +1], [+1, +2]]
+
+# Piece settings
+pieces = {
+  :pawn => { type: :pawn, colors: [113,71], sample: :tabla_ghe1},
+  :rook => { type: :rook, colors: [3,63], sample: :tabla_te_ne, move_type: :slide, moves: ORTHOGONALS},
+  :knight => { type: :knight, colors: [37,127], sample: :tabla_te_ne, move_type: :step, moves: HOPS },
+  :bishop => { type: :bishop, colors: [44, 121], sample: :tabla_re, move_type: :slide, moves: DIAGONALS },
+  :queen => { type: :queen, colors: [54,5], sample: :tabla_na_s, move_type: :slide, moves: DIAGONALS+ORTHOGONALS },
+  :king => { type: :king, colors: [45,13], sample: :tabla_ghe8, move_type: :step, moves: DIAGONALS+ORTHOGONALS }
+}
+
+# Game sounds for selecting, attack or movement
+select_sounds = [:mehackit_phone3,:mehackit_phone4,:mehackit_robot3,:glitch_perc2]
+attack_sounds = [:mehackit_robot6,:mehackit_robot5]
+move_sounds = [:mehackit_phone1,:mehackit_robot1,:mehackit_robot2,:mehackit_robot4]
 
 # Set novation mini to programmer mode
 define :set_programmer_mode do
@@ -39,6 +59,7 @@ define :sync_type do |address|
   end
 end
 
+# Get possible moves from selected piece
 define :get_possible_moves do |cell|
   piece = cell[:piece]
   x = cell[:x]
@@ -104,23 +125,7 @@ define :get_possible_moves do |cell|
   possible_moves
 end
 
-DIAGONALS = [[1, 1], [1, -1], [-1, 1], [-1, -1]]
-ORTHOGONALS = [[0, 1], [1, 0], [0, -1], [-1, 0]]
-HOPS = [[-1, -2], [-2, -1], [-2, +1], [-1, +2], [+1, -2], [+2, -1], [+2, +1], [+1, +2]]
-
-pieces = {
-  :pawn => { type: :pawn, colors: [113,71], sample: :tabla_ghe1},
-  :rook => { type: :rook, colors: [3,63], sample: :tabla_te_ne, move_type: :slide, moves: ORTHOGONALS},
-  :knight => { type: :knight, colors: [37,127], sample: :tabla_te_ne, move_type: :step, moves: HOPS },
-  :bishop => { type: :bishop, colors: [44, 121], sample: :tabla_re, move_type: :slide, moves: DIAGONALS },
-  :queen => { type: :queen, colors: [54,5], sample: :tabla_na_s, move_type: :slide, moves: DIAGONALS+ORTHOGONALS },
-  :king => { type: :king, colors: [45,13], sample: :tabla_ghe8, move_type: :step, moves: DIAGONALS+ORTHOGONALS }
-}
-
-select_sounds = [:mehackit_phone3,:mehackit_phone4,:mehackit_robot3,:glitch_perc2]
-attack_sounds = [:mehackit_robot6,:mehackit_robot5]
-move_sounds = [:mehackit_phone1,:mehackit_robot1,:mehackit_robot2,:mehackit_robot4]
-
+# Method for initializing the board
 define :set_up_board do |board|
   [1,6].each.with_index do |r,i|
     board[r].each do |cell|
@@ -158,6 +163,7 @@ define :set_pad_color do |cell|
   led_sysex values
 end
 
+# Set colors from array to multiple cells
 define :set_colors do |arr,colors, type=0|
   pad_colors = []
   arr.each.with_index do |pos,i|
@@ -168,6 +174,7 @@ define :set_colors do |arr,colors, type=0|
   led_sysex pad_colors
 end
 
+# Start new game
 define :start_game do
   set_programmer_mode
   $board = (1..8).map {|x| ('a'..'h').map.with_index {|y,i| { pos: (x.to_s+(i+1).to_s).to_i,id: (y+x.to_s), x: x-1, y: i, piece: nil, color: 0 }}}
@@ -182,7 +189,7 @@ define :start_game do
   set :game_over, false
 end
 
-# Thread for listening events from the novation launchpad
+# Thread for listening events from the novation launchpad. This loop sends processed cue events to the game loop.
 live_loop :event_listener do
   use_real_time
   # midi note is touch position 11, 12, 13 ...
@@ -217,6 +224,7 @@ live_loop :event_listener do
   end
 end
 
+# Methods for detecting simultanious pressing for control pads
 define :set_pad_status do |id, bool|
   set ("pad_"+id.to_s).to_sym, bool
 end
@@ -250,12 +258,14 @@ define :flash_cells do |cells, color|
   end
 end
 
+# Removes piece from cell
 define :remove_piece_from_cell do |cell|
   cell[:color] = 0
   cell[:piece] = nil
   set_pad_color cell
 end
 
+# Change turn to the next player and light up novation icon as a marker
 define :change_turn do |turn|
   next_turn = (turn+1)%2
   set :turn, next_turn
@@ -263,13 +273,15 @@ define :change_turn do |turn|
   set_pad_color turn_cell
 end
 
+# This allows live coding for the game. Pressing run does not initialize the game state!
 defonce :init_chess do
   start_game
 end
 
-# Start a new game
+# Start a new game only if one is not already in progress
 init_chess
 
+# Live loop for game events. All the events are processed with this loop.
 live_loop :game do
   use_real_time
   event = sync :push
@@ -371,7 +383,6 @@ live_loop :game do
               set :selected_pad, nil # Change turn
               change_turn turn
             end
-            
           else
             print "Illegal move"
             set :selected_pad, nil
@@ -393,6 +404,7 @@ live_loop :game do
   end
 end
 
+# Live loop for generating the music from the game state
 live_loop :music do
   game_over = get :game_over
   if game_over
