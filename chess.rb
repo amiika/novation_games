@@ -1,3 +1,13 @@
+# Sonic chess for Novation Launchpad and Sonic Pi
+
+# Start new game at any time by pressing Stop and Up-arrow
+# When game is running, you can potentially live code music (or anything) on the fly.
+# Turn of the player is indicated in the top right corner (Novation logo)
+# Select piece to move or inspect enemy moves. Turn changes only after legal move is done.
+# Undo previous move (for teachnig purposes) by pressing Left-arrow
+# Game is not finished until the King is dead. Long live the King! 
+# Start a new game by pressing Stop and Up-arrow
+
 use_debug false
 use_midi_logging false
 use_bpm 60
