@@ -29,3 +29,7 @@ Collection of small and colorful games for Novation Launchpad Mini controller an
 * Battle ships
 * Worms
 * Tetris
+
+# Coding game music
+
+Sonifying the game state is also a fun thing to do. You can create your own music and sounds for the game that evolves based on the game state. It is possible to live code music from the game state, for example during a chess game.  
